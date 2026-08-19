@@ -365,6 +365,27 @@
   .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #0d9488, #2dd4bf); }
   .lbl-t { margin-bottom: 9px; }
 
+  /* ═══ Reparto por porcentaje ═══ */
+  .slider {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+    border-radius: 99px; background: var(--surface-3); outline: none; padding: 0;
+    border: 1px solid var(--border-2);
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    background: linear-gradient(135deg, #0d9488, #2dd4bf);
+    box-shadow: 0 2px 10px rgba(20,184,166,.5); border: 2px solid #0b1220;
+  }
+  .slider::-moz-range-thumb {
+    width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    background: linear-gradient(135deg, #0d9488, #2dd4bf);
+    box-shadow: 0 2px 10px rgba(20,184,166,.5); border: 2px solid #0b1220;
+  }
+  .pct-input { position: relative; }
+  .pct-input input { padding-right: 32px; font-size: 1.1rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+  .pct-input span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; pointer-events: none; }
+
   /* Pantallas angostas: que el encabezado no se parta en dos filas */
   @media (max-width: 430px) {
     .hdr-inner { gap: 7px; padding: 10px 13px; flex-wrap: nowrap; }
@@ -441,6 +462,14 @@
 
 <div class="wrap" id="app">
 
+  <!-- ══════════ AVISO DE PRIMEROS PASOS ══════════ -->
+  <div id="avisoNombres" class="hidden" style="margin-top:16px">
+    <div class="hint-box warn">
+      <strong>Poné los nombres de los dos.</strong> Así la app dice “Vero te debe…” en vez de “Otra persona te debe…”.
+      <div class="mt8"><button class="btn btn-sm" onclick="abrirAjustes()">Poner los nombres</button></div>
+    </div>
+  </div>
+
   <!-- ══════════ SALDO ══════════ -->
   <div class="saldo-card">
     <div class="saldo-lbl">Cuentas entre nosotros</div>
@@ -496,6 +525,7 @@
       </div>
     </div>
     <div class="card-bd tight"><div class="lista" id="lista"></div></div>
+    <div class="card-bd xs mut center" id="pieLista" style="border-top:1px solid var(--border)">Tocá cualquier gasto para editarlo o borrarlo.</div>
   </div>
 
   <!-- ══════════ POR CATEGORÍA / MEDIO ══════════ -->
@@ -553,6 +583,19 @@
       <div class="field">
         <label>¿Cómo se reparte?</label>
         <div class="chips" id="gReparto"></div>
+      </div>
+
+      <div id="gPorcentaje" class="hidden">
+        <div class="chips mt8" id="gPctAtajos"></div>
+        <input type="range" id="gPctSlider" class="slider mt12" min="0" max="100" step="1" value="50" oninput="setPct(this.value)"/>
+        <div class="grid2 mt8">
+          <div class="field" style="margin:0"><label id="gPctNom1">—</label>
+            <div class="pct-input"><input type="number" id="gPctP1" inputmode="numeric" min="0" max="100" step="1" oninput="setPct(this.value)"/><span>%</span></div>
+          </div>
+          <div class="field" style="margin:0"><label id="gPctNom2">—</label>
+            <div class="pct-input"><input type="number" id="gPctP2" inputmode="numeric" min="0" max="100" step="1" oninput="setPctDesdeP2(this.value)"/><span>%</span></div>
+          </div>
+        </div>
       </div>
 
       <div id="gPersonalizado" class="hidden">
@@ -704,9 +747,10 @@ var CATS_INICIALES = [
   { id: 'c12', nombre: 'Otros',          emoji: '📌' }
 ];
 
+var NOMBRES_POR_DEFECTO = ['Yo', 'Otra persona'];
 var personas = [
-  { id: 'p1', nombre: 'Yo',            _ts: 0 },
-  { id: 'p2', nombre: 'Otra persona',  _ts: 0 }
+  { id: 'p1', nombre: NOMBRES_POR_DEFECTO[0], _ts: 0 },
+  { id: 'p2', nombre: NOMBRES_POR_DEFECTO[1], _ts: 0 }
 ];
 var medios     = [];
 var categorias = [];
@@ -729,7 +773,7 @@ var pDesde = '', pHasta = '';
 var fTipo = 'todos';         // todos | compartidos | mios | suyos
 var desgloseModo = 'cat';
 var editandoGasto = null, editandoPago = null;
-var gModo = 'mitad', gPagador = 'p1';
+var gModo = 'mitad', gPagador = 'p1', gPct = 50;
 var pDir = 'p2ap1';
 
 // ── Utilidades ──────────────────────────────────────────────────────────────
@@ -1289,10 +1333,17 @@ function generarInvitacion(incluirCodigo) {
 
 // Reparte un monto según el modo elegido. Siempre devuelve dos partes que suman
 // exactamente el total (el redondeo se le carga a la segunda).
-function calcPartes(monto, modo, libre1, libre2) {
+function calcPartes(monto, modo, libre1, libre2, pct1) {
   var m = redondear(num(monto));
   if (modo === 'p1') return { p1: m, p2: 0 };
   if (modo === 'p2') return { p1: 0, p2: m };
+  if (modo === 'pct') {
+    var p = num(pct1);
+    if (p < 0) p = 0;
+    if (p > 100) p = 100;
+    var parte1 = redondear(m * p / 100);
+    return { p1: parte1, p2: redondear(m - parte1) };
+  }
   if (modo === 'libre') {
     var a = num(libre1), b = num(libre2);
     var ta = libre1 !== '' && libre1 !== null && libre1 !== undefined;
@@ -1444,6 +1495,11 @@ function render() {
   $('stComp').parentNode.querySelector('.lbl').textContent = 'Parte de ' + otroN;
   $('stPuse').parentNode.querySelector('.lbl').textContent = 'Puse por ' + otroN;
 
+  // Aviso de primeros pasos mientras los nombres sigan siendo los de fábrica
+  var sinNombres = nombreDe('p1') === NOMBRES_POR_DEFECTO[0] || nombreDe('p2') === NOMBRES_POR_DEFECTO[1];
+  $('avisoNombres').classList.toggle('hidden', !sinNombres);
+  $('pieLista').classList.toggle('hidden', !gastos.length);
+
   pintarChips();
   pintarSelects();
   pintarLista();
@@ -1528,7 +1584,12 @@ function filaGasto(g) {
   var cat = porId(categorias, g.catId);
   var med = porId(medios, g.medioId);
   var tag;
-  if (esCompartido(g)) tag = '<span class="tag comp">compartido</span>';
+  if (esCompartido(g)) {
+    // Si no es mitad y mitad se muestra el reparto, con mi porcentaje primero.
+    var q1 = Math.round(parteDe(g, soyId) / num(g.monto) * 100);
+    var reparto = (q1 >= 49 && q1 <= 51) ? '' : ' ' + q1 + '/' + (100 - q1);
+    tag = '<span class="tag comp">compartido' + reparto + '</span>';
+  }
   else if (esSoloDe(g, soyId)) tag = '<span class="tag mio">solo mío</span>';
   else if (esSoloDe(g, elOtro())) tag = '<span class="tag suyo">solo de ' + esc(nombreDe(elOtro())) + '</span>';
   else tag = '<span class="tag">sin reparto</span>';
@@ -1610,6 +1671,11 @@ function abrirGasto(id) {
   $('gNota').value = g ? (g.nota || '') : '';
   gPagador = g ? g.pagador : soyId;
   gModo = g ? (g.modo || 'mitad') : 'mitad';
+  // Al abrir un gasto viejo: si guardó el porcentaje se usa ese; si no, se
+  // deduce de los montos, así también sirve para gastos hechos antes.
+  if (g && g.pct1 !== null && g.pct1 !== undefined) gPct = num(g.pct1);
+  else if (g && num(g.monto) > 0) gPct = redondear(num(g.p1) / num(g.monto) * 100);
+  else gPct = 50;
 
   $('gMedio').innerHTML = medios.map(function (m) {
     return '<option value="' + m.id + '">' + esc(m.nombre) + '</option>';
@@ -1627,6 +1693,7 @@ function abrirGasto(id) {
   if (gModo === 'libre') {
     $('gPartes').innerHTML = camposLibres(g ? g.p1 : '', g ? g.p2 : '');
   }
+  pintarPorcentaje();
   recalcReparto();
   abrir('ovGasto');
 }
@@ -1642,12 +1709,14 @@ function pintarModos() {
     ['mitad', 'Mitad y mitad'],
     ['p1', 'Solo ' + nombreDe('p1')],
     ['p2', 'Solo ' + nombreDe('p2')],
-    ['libre', 'Personalizado']
+    ['pct', 'Por porcentaje'],
+    ['libre', 'Por montos']
   ];
   $('gReparto').innerHTML = defs.map(function (d) {
     return '<button type="button" class="chip' + (gModo === d[0] ? ' on' : '') + '" onclick="setModo(\'' + d[0] + '\')">' + esc(d[1]) + '</button>';
   }).join('');
   $('gPersonalizado').classList.toggle('hidden', gModo !== 'libre');
+  $('gPorcentaje').classList.toggle('hidden', gModo !== 'pct');
 }
 function camposLibres(v1, v2) {
   return ['p1', 'p2'].map(function (p, i) {
@@ -1655,6 +1724,28 @@ function camposLibres(v1, v2) {
       '<input type="number" inputmode="decimal" step="0.01" id="gLibre' + p + '" value="' + (i === 0 ? (v1 === 0 || v1 ? v1 : '') : (v2 === 0 || v2 ? v2 : '')) + '" oninput="recalcReparto()"/></div>';
   }).join('');
 }
+// ── Reparto por porcentaje ──────────────────────────────────────────────────
+// Un solo número manda: el porcentaje de p1. El de p2 es lo que falta para 100,
+// así nunca puede quedar un reparto que no sume el total.
+function pintarPorcentaje() {
+  var p = gPct;
+  $('gPctSlider').value = p;
+  $('gPctP1').value = p;
+  $('gPctP2').value = redondear(100 - p);
+  $('gPctNom1').textContent = nombreDe('p1');
+  $('gPctNom2').textContent = nombreDe('p2');
+  $('gPctAtajos').innerHTML = [50, 60, 70, 75, 80, 100].map(function (v) {
+    return '<button type="button" class="chip' + (Math.abs(gPct - v) < 0.01 ? ' on' : '') + '" onclick="setPct(' + v + ')">' + v + '/' + (100 - v) + '</button>';
+  }).join('');
+}
+function setPct(v) {
+  v = num(v);
+  if (v < 0) v = 0; if (v > 100) v = 100;
+  gPct = redondear(v);
+  pintarPorcentaje();
+  recalcReparto();
+}
+function setPctDesdeP2(v) { setPct(100 - num(v)); }
 function setModo(m) {
   gModo = m;
   if (m === 'libre' && !$('gLibrep1')) {
@@ -1662,13 +1753,14 @@ function setModo(m) {
     $('gPartes').innerHTML = camposLibres(redondear(mt), redondear(num($('gMonto').value) - redondear(mt)));
   }
   pintarModos();
+  if (m === 'pct') pintarPorcentaje();
   recalcReparto();
 }
 function partesActuales() {
   var monto = num($('gMonto').value);
   var l1 = $('gLibrep1') ? $('gLibrep1').value : '';
   var l2 = $('gLibrep2') ? $('gLibrep2').value : '';
-  return calcPartes(monto, gModo, l1, l2);
+  return calcPartes(monto, gModo, l1, l2, gPct);
 }
 function recalcReparto() {
   var monto = num($('gMonto').value);
@@ -1679,8 +1771,9 @@ function recalcReparto() {
   else {
     var deudor = otroId(gPagador);
     var leToca = deudor === 'p1' ? pt.p1 : pt.p2;
-    txt = '<strong>' + esc(nombreDe('p1')) + ':</strong> ' + money(pt.p1) +
-          ' &nbsp;·&nbsp; <strong>' + esc(nombreDe('p2')) + ':</strong> ' + money(pt.p2);
+    var q1 = Math.round(pt.p1 / monto * 100), q2 = 100 - q1;
+    txt = '<strong>' + esc(nombreDe('p1')) + ':</strong> ' + money(pt.p1) + ' <span class="mut">(' + q1 + '%)</span>' +
+          ' &nbsp;·&nbsp; <strong>' + esc(nombreDe('p2')) + ':</strong> ' + money(pt.p2) + ' <span class="mut">(' + q2 + '%)</span>';
     if (leToca > 0) txt += '<br>' + esc(nombreDe(deudor)) + ' le queda debiendo <strong>' + money(leToca) + '</strong> a ' + esc(nombreDe(gPagador)) + '.';
     else txt += '<br>Este gasto no genera deuda.';
     if (Math.abs(suma - redondear(monto)) > 0.011) {
@@ -1708,6 +1801,7 @@ function guardarGasto() {
   g.modo = gModo;
   g.p1 = pt.p1;
   g.p2 = pt.p2;
+  if (gModo === 'pct') g.pct1 = gPct; else delete g.pct1;
   g.nota = ($('gNota').value || '').trim();
   marcar(g);
   editandoGasto = null;
@@ -2135,7 +2229,7 @@ function syncRender() {
 /* ═══════════════════════════════════════════════════════════════════
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════ */
-var VERSION = '1.0';
+var VERSION = '1.1';
 
 function arrancar() {
   cargarLocal();
