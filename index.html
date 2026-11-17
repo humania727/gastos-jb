@@ -386,6 +386,34 @@
   .pct-input input { padding-right: 32px; font-size: 1.1rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
   .pct-input span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; pointer-events: none; }
 
+  /* ═══ Pestañas Gastos / Rancho ═══ */
+  .vista-seg { margin-top: 16px; }
+  .vista-seg button { padding: 12px 8px; font-size: .88rem; }
+  .bar.dos { display: flex; }
+  .bar.dos > i { height: 100%; }
+  .bar.dos > i.y { background: var(--yellow); }
+  .bar.dos > i.r { background: var(--red); }
+  .tag.pend { color: var(--yellow); border-color: rgba(251,191,36,.4); background: var(--yellow-soft); }
+  .rancho-card .saldo-val { color: var(--text); }
+  .rancho-card::before { background: radial-gradient(600px 200px at 100% 0%, var(--yellow-soft), transparent 65%); }
+  .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 9px; }
+  .foto {
+    position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--border-2); background: var(--surface-3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); font-size: .68rem; padding: 4px;
+  }
+  .foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .foto .quitar {
+    position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
+    border: none; background: rgba(2,6,23,.82); color: #fff; cursor: pointer; font-size: .75rem; line-height: 1; z-index: 2;
+  }
+  .foto-add { border-style: dashed; color: var(--accent-2); font-weight: 700; flex-direction: column; gap: 4px; }
+  #ovFoto { align-items: center; padding: 12px; }
+  #ovFoto .vis { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 96vw; }
+  #ovFoto img { max-width: 96vw; max-height: 78vh; border-radius: 10px; background: #fff; }
+  #ovFoto a.btn { text-decoration: none; }
+
   /* Pantallas angostas: que el encabezado no se parta en dos filas */
   @media (max-width: 430px) {
     .hdr-inner { gap: 7px; padding: 10px 13px; flex-wrap: nowrap; }
@@ -470,6 +498,13 @@
     </div>
   </div>
 
+  <!-- ══════════ PESTAÑAS ══════════ -->
+  <div class="seg vista-seg" id="vistaSeg">
+    <button id="vtGastos" class="on" onclick="setVista('gastos')">💸 Gastos</button>
+    <button id="vtRancho" onclick="setVista('rancho')">🏡 Rancho</button>
+  </div>
+
+  <div id="vistaGastos">
   <!-- ══════════ SALDO ══════════ -->
   <div class="saldo-card">
     <div class="saldo-lbl">Cuentas entre nosotros</div>
@@ -539,17 +574,82 @@
     </div>
     <div class="card-bd" id="desglose"></div>
   </div>
+  </div><!-- /vistaGastos -->
+
+  <!-- ══════════ VISTA: RANCHO ══════════ -->
+  <div id="vistaRancho" class="hidden">
+
+    <div class="saldo-card rancho-card">
+      <div class="saldo-lbl">🏡 Proyecto rancho · lo gastado</div>
+      <div class="saldo-val" id="rcTotal">₡0</div>
+      <div class="saldo-desc" id="rcDesc">Todavía no hay gastos del rancho.</div>
+      <div id="rcPresu" class="mt12" style="position:relative"></div>
+      <div class="saldo-acc">
+        <button class="btn btn-sm" onclick="rcAbrirPresupuesto()">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/></svg> Presupuesto
+        </button>
+        <button class="btn btn-sm" onclick="rcExportarExcel()">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg> Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat teal"><div class="lbl">Ya pagado</div><div class="val num" id="rcStPagado">₡0</div><div class="hint" id="rcStPagadoH">—</div></div>
+      <div class="stat yellow"><div class="lbl">Por pagar</div><div class="val num" id="rcStPend">₡0</div><div class="hint" id="rcStPendH">—</div></div>
+      <div class="stat blue"><div class="lbl">Disponible</div><div class="val num" id="rcStDisp">—</div><div class="hint" id="rcStDispH">sin presupuesto</div></div>
+      <div class="stat violet"><div class="lbl">Con factura</div><div class="val num" id="rcStFact">0 de 0</div><div class="hint">registros con foto adjunta</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><h2>Quién ha puesto la plata</h2></div>
+      <div class="card-bd" id="rcAportes"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h2>Gastos y pagos</h2>
+        <span class="cnt" id="rcCnt">0</span>
+      </div>
+      <div class="card-bd">
+        <div class="chips" id="rcChipsEstado"></div>
+        <div class="mt12 grid2">
+          <div class="field" style="margin:0"><select id="rcFCat" onchange="rcRender()"><option value="">Todas las categorías</option></select></div>
+          <div class="field" style="margin:0"><input type="text" id="rcFTexto" placeholder="Buscar proveedor, factura…" oninput="rcRender()"/></div>
+        </div>
+      </div>
+      <div class="card-bd tight" style="border-top:1px solid var(--border)"><div class="lista" id="rcLista"></div></div>
+      <div class="card-bd xs mut center hidden" id="rcPie" style="border-top:1px solid var(--border)">Tocá cualquier registro para editarlo, ver sus facturas o marcarlo como pagado.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h2>En qué se va la plata</h2>
+        <div class="seg" style="max-width:230px">
+          <button id="rcSegCat" class="on" onclick="rcSetDesglose('cat')">Categoría</button>
+          <button id="rcSegProv" onclick="rcSetDesglose('prov')">Proveedor</button>
+        </div>
+      </div>
+      <div class="card-bd" id="rcDesglose"></div>
+    </div>
+
+  </div>
 
 </div>
 
 <!-- ══════════ BARRA INFERIOR ══════════ -->
 <div class="fab-bar" id="fabBar">
-  <div class="fab-inner">
+  <div class="fab-inner" id="fabGastos">
     <button class="btn btn-primary" onclick="abrirGasto()">
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Nuevo gasto
     </button>
     <button class="btn" onclick="abrirPago()">
       <svg viewBox="0 0 24 24"><path d="M17 8l4 4-4 4M3 12h18"/></svg> Pago
+    </button>
+  </div>
+  <div class="fab-inner hidden" id="fabRancho">
+    <button class="btn btn-primary" onclick="rcAbrir()">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Registrar gasto o pago
     </button>
   </div>
 </div>
@@ -680,6 +780,76 @@
   </div>
 </div>
 
+<!-- ══════════ MODAL: RANCHO (gasto o pago) ══════════ -->
+<div class="ov" id="ovRancho">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="rTitulo">Gasto o pago del rancho</h3>
+      <button class="x" onclick="cerrar('ovRancho')"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-bd">
+      <div class="field">
+        <label>Monto</label>
+        <div class="money-input"><span class="cur">₡</span><input type="number" id="rMonto" inputmode="decimal" step="0.01" placeholder="0"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Fecha</label><input type="date" id="rFecha"/></div>
+        <div class="field"><label>Categoría</label><select id="rCat"></select></div>
+      </div>
+      <div class="field"><label>¿Qué es?</label><input type="text" id="rConcepto" placeholder="Ej: cemento, pago de la semana 1, planos"/></div>
+      <div class="field"><label>Proveedor o a quién se le paga</label><input type="text" id="rProveedor" list="rProvList" placeholder="Ej: Ferretería, Don Luis"/><datalist id="rProvList"></datalist></div>
+      <div class="field"><label>Estado</label><div class="seg" id="rEstado"></div></div>
+      <div class="field"><label>¿Quién puso la plata?</label><div class="seg" id="rPagador"></div></div>
+      <div class="field"><label>N.º de factura (opcional)</label><input type="text" id="rFactura" placeholder="Ej: 00100001010000012345"/></div>
+      <div class="field">
+        <label>Fotos de facturas y comprobantes</label>
+        <div class="fotos" id="rFotos"></div>
+        <input type="file" id="rArchivo" accept="image/*" multiple class="hidden" onchange="rcAgregarFotos(this)"/>
+        <div class="xs mut mt8" id="rFotosPie"></div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Nota (opcional)</label><textarea id="rNota" placeholder="detalle, acuerdo, lo que quieran recordar"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-danger hidden" id="rBorrar" onclick="rcBorrar()">Borrar</button>
+      <button class="btn btn-ghost" onclick="cerrar('ovRancho')">Cancelar</button>
+      <button class="btn btn-primary" onclick="rcGuardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: PRESUPUESTO DEL RANCHO ══════════ -->
+<div class="ov" id="ovRcPresu">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3>Presupuesto del rancho</h3>
+      <button class="x" onclick="cerrar('ovRcPresu')"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-bd">
+      <div class="hint-box">Cuánto calculan gastar en total. La app muestra cuánto llevan y cuánto les queda disponible.</div>
+      <div class="field mt16" style="margin-bottom:0">
+        <label>Presupuesto total</label>
+        <div class="money-input"><span class="cur">₡</span><input type="number" id="rpMonto" inputmode="decimal" step="1" placeholder="0"/></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-danger" onclick="rcGuardarPresupuesto(true)">Quitar</button>
+      <button class="btn btn-ghost" onclick="cerrar('ovRcPresu')">Cancelar</button>
+      <button class="btn btn-primary" onclick="rcGuardarPresupuesto(false)">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ VISOR DE FOTO ══════════ -->
+<div class="ov" id="ovFoto">
+  <div class="vis">
+    <img id="fotoGrande" alt="Factura"/>
+    <div class="flex">
+      <a class="btn" id="fotoDescarga" download="factura.jpg">Descargar</a>
+      <button class="btn" onclick="cerrar('ovFoto')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
@@ -716,6 +886,12 @@ var LS_SOY       = 'gastos_soy';
 var LS_BLOQ      = 'gastos_bloqueada';
 var LS_FONDO     = 'gastos_fondo';
 var LS_SYNC_OK   = 'gastos_sync_ok';
+var LS_RANCHO    = 'gastos_rancho';
+var LS_VISTA     = 'gastos_vista';
+// El rancho y sus fotos viven en "hermanos" de la sala (sala + sufijo): las
+// reglas de Firebase ya los dejan pasar y las versiones viejas no los tocan.
+var SUFIJO_RANCHO = '_rancho';
+var SUFIJO_FOTOS  = '_fotos';
 
 // Configuración del proyecto propio de gastos (creado el 19 de agosto de 2026).
 // Es aparte del de préstamos: un problema en una app no puede tocar la otra.
@@ -757,6 +933,14 @@ var categorias = [];
 var gastos     = [];
 var pagos      = [];
 var tombstones = { gastos: {}, pagos: {}, medios: {}, categorias: {} };
+
+// Rancho (proyecto familiar)
+var rcMovs = [], rcCfg = { presupuesto: 0, _ts: 0 }, rcTombs = {};
+var vista = 'gastos';
+var fbRefR = null, fbRefF = null, rcAplicando = false, rcTimer = null, rcUltFirma = null;
+var rcFiltroEstado = 'todos', rcDesgloseModo = 'cat';
+var rcEditando = null, rcPagador = 'p1', rcEstado = 'pagado', rcFotosEdit = [];
+var fotoCache = {};
 
 var soyId = 'p1';            // quién soy YO en este dispositivo (no se sincroniza)
 var salaId = '';
@@ -1105,6 +1289,7 @@ function conectarFirebase() {
       else if (lastSyncOkAt) syncOk();
     });
     fbRef.on('value', alRecibirRemoto, function (err) { syncFalla(explicarErrorFb(err)); });
+    conectarRancho(db);
   } catch (e) { syncFalla(e.message); }
 }
 function alRecibirRemoto(snap) {
@@ -1148,6 +1333,7 @@ function scheduleAutoSync() {
   }, 700);
 }
 function flushSync() {
+  rcFlush();
   if (!syncConectado()) return;
   clearTimeout(autoSyncTimer);
   var st = snapshotLocal();
@@ -1203,7 +1389,7 @@ function bloquearApp() {
   mostrarGate('bloqueada');
 }
 function cerrarTodo() {
-  ['ovGasto', 'ovPago', 'ovCuentas', 'ovAjustes', 'ovSync'].forEach(function (id) {
+  ['ovGasto', 'ovPago', 'ovCuentas', 'ovAjustes', 'ovSync', 'ovRancho', 'ovRcPresu', 'ovFoto'].forEach(function (id) {
     var e = $(id); if (e) e.classList.remove('open');
   });
 }
@@ -1289,6 +1475,8 @@ function salirDispositivo() {
     localStorage.removeItem(LS_SALA);
     localStorage.removeItem(LS_BLOQ);
     localStorage.removeItem(LS_SOY);
+    localStorage.removeItem(LS_RANCHO);
+    localStorage.removeItem(LS_VISTA);
   } catch (e) {}
   location.reload();
 }
@@ -1506,6 +1694,7 @@ function render() {
   pintarDesglose();
   if (abierto('ovAjustes')) ajustesRender();
   if (abierto('ovCuentas')) cuentasRender();
+  rcRender();
 }
 
 function pintarChips() {
@@ -2019,12 +2208,12 @@ function ajustesRender() {
     '<button class="btn btn-sm" onclick="$(\'archivoImp\').click()">Importar respaldo</button>' +
     '<button class="btn btn-sm" onclick="exportarExcel()">Excel</button>' +
     '<input type="file" id="archivoImp" accept=".json" class="hidden" onchange="importarJSON(this)"/></div>' +
-    '<div class="xs mut mt8">Importar <strong>reemplaza</strong> todo lo que hay, también en la nube.</div>';
+    '<div class="xs mut mt8">Importar <strong>reemplaza</strong> todo lo que hay, también en la nube. El respaldo incluye los registros del rancho, pero no las fotos de las facturas (esas se quedan en la nube).</div>';
 
   h += '<div class="divider"></div><div class="flex wrapf">' +
     (FB_CONFIG_FIJO ? '' : '<button class="btn btn-sm btn-ghost" onclick="cerrar(\'ovAjustes\');mostrarGate(\'nuevo\');mostrarPasoNube(true)">Configurar la nube</button>') +
     '<button class="btn btn-sm btn-danger" onclick="salirDispositivo()">Salir de este dispositivo</button></div>' +
-    '<div class="xs mut mt8">Versión ' + VERSION + ' · ' + gastos.length + ' gastos · ' + pagos.length + ' pagos</div>';
+    '<div class="xs mut mt8">Versión ' + VERSION + ' · ' + gastos.length + ' gastos · ' + pagos.length + ' pagos · ' + rcMovs.length + ' del rancho</div>';
 
   $('ajustesBd').innerHTML = h;
 }
@@ -2107,7 +2296,8 @@ function exportarJSON() {
   var d = {
     app: 'gastos-compartidos', version: VERSION, fecha: new Date().toISOString(),
     personas: personas, medios: medios, categorias: categorias,
-    gastos: gastos, pagos: pagos, tombstones: tombstones
+    gastos: gastos, pagos: pagos, tombstones: tombstones,
+    rancho: rcSnapshot()
   };
   bajarArchivo('gastos_' + hoyISO() + '.json', JSON.stringify(d, null, 2), 'application/json');
   toast('Respaldo descargado', 'ok');
@@ -2142,6 +2332,7 @@ function importarJSON(inp) {
       medios.forEach(function (m) { delete tombstones.medios[m.id]; });
       categorias.forEach(function (c) { delete tombstones.categorias[c.id]; });
 
+      if (d.rancho) rcImportar(d.rancho, t);
       guardarLocal();
       render();
       if (syncConectado()) subir(snapshotLocal());
@@ -2227,12 +2418,554 @@ function syncRender() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   RANCHO — gastos, pagos y facturas del proyecto familiar.
+
+   Va en su propio espacio de la nube (la sala + "_rancho"), separado de los
+   gastos compartidos: así una versión vieja de la app en otro teléfono no
+   puede pisarlo. Las fotos de facturas viven aparte (la sala + "_fotos"), una
+   por registro, y solo se bajan cuando alguien abre esa factura.
+   ═══════════════════════════════════════════════════════════════════ */
+var RC_CATS = [
+  { id: 'mat', nombre: 'Materiales',            emoji: '🧱' },
+  { id: 'mo',  nombre: 'Mano de obra',          emoji: '👷' },
+  { id: 'dis', nombre: 'Diseño y permisos',     emoji: '📐' },
+  { id: 'ins', nombre: 'Instalaciones',         emoji: '🔌' },
+  { id: 'her', nombre: 'Herramientas y equipo', emoji: '🛠️' },
+  { id: 'tra', nombre: 'Transporte y flete',    emoji: '🚚' },
+  { id: 'aca', nombre: 'Acabados',              emoji: '🎨' },
+  { id: 'otr', nombre: 'Otros',                 emoji: '📌' }
+];
+var RC_MAX_FOTOS = 6;
+
+function rcCat(id) {
+  for (var i = 0; i < RC_CATS.length; i++) if (RC_CATS[i].id === id) return RC_CATS[i];
+  return RC_CATS[RC_CATS.length - 1];
+}
+function rcFotosDe(m) { return aArray(m && m.fotos); }
+function rcSnapshot() { return { movs: rcMovs, cfg: rcCfg, tombs: rcTombs }; }
+function rcGuardarLocal() {
+  try { localStorage.setItem(LS_RANCHO, JSON.stringify(rcSnapshot())); } catch (e) {}
+}
+function rcCargarLocal() {
+  try {
+    var d = JSON.parse(localStorage.getItem(LS_RANCHO) || 'null');
+    if (d) {
+      rcMovs = aArray(d.movs);
+      rcCfg = { presupuesto: num(d.cfg && d.cfg.presupuesto), _ts: (d.cfg && d.cfg._ts) || 0 };
+      rcTombs = d.tombs || {};
+    }
+  } catch (e) {}
+  vista = localStorage.getItem(LS_VISTA) === 'rancho' ? 'rancho' : 'gastos';
+}
+function rcTocado() {
+  rcGuardarLocal();
+  render();
+  rcProgramar();
+}
+
+// ── Sincronización del rancho ───────────────────────────────────────────────
+function rcNormalizar(raw) {
+  raw = raw || {};
+  var c = raw.cfg || {};
+  return { movs: aArray(raw.movs), cfg: { presupuesto: num(c.presupuesto), _ts: c._ts || 0 }, tombs: raw.tombs || {} };
+}
+function rcFirma(st) {
+  var a = (st.movs || []).map(function (x) { return x.id + '@' + (x._ts || 0); }).sort().join(',');
+  var t = Object.keys(st.tombs || {}).sort().map(function (k) { return k + ':' + st.tombs[k]; }).join(',');
+  return a + '|' + t + '|' + ((st.cfg && st.cfg._ts) || 0);
+}
+function rcMerge(local, remoto) {
+  var tb = fusionarTombs(local.tombs, remoto.tombs);
+  var cfg = (remoto.cfg._ts || 0) > (local.cfg._ts || 0) ? remoto.cfg : local.cfg;
+  return { movs: fusionarLista(local.movs, remoto.movs, tb), cfg: cfg, tombs: tb };
+}
+function conectarRancho(db) {
+  if (fbRefR) { fbRefR.off(); fbRefR = null; }
+  fbRefR = db.ref(RAIZ_FB + '/' + salaId + SUFIJO_RANCHO);
+  fbRefF = db.ref(RAIZ_FB + '/' + salaId + SUFIJO_FOTOS);
+  fbRefR.on('value', rcAlRecibir, function (err) { syncFalla(explicarErrorFb(err)); });
+}
+function rcAlRecibir(snap) {
+  var remoto = rcNormalizar(snap.val());
+  rcUltFirma = rcFirma(remoto);
+  var local = rcSnapshot();
+  var fLocal = rcFirma(local);
+  var m = rcMerge(local, remoto);
+  var fm = rcFirma(m);
+  if (fm !== fLocal) {
+    rcAplicando = true;
+    try {
+      rcMovs = m.movs; rcCfg = m.cfg; rcTombs = m.tombs;
+      rcGuardarLocal();
+      render();
+    } finally { rcAplicando = false; }
+  }
+  if (fm !== rcUltFirma) rcSubir(m);
+}
+function rcSubir(st) {
+  if (!fbRefR) return Promise.resolve();
+  var payload = limpiarParaFirebase({ movs: st.movs, cfg: st.cfg, tombs: st.tombs, _ts: ahora() });
+  syncDebug.escrituras++;
+  return fbRefR.set(payload).then(function () {
+    rcUltFirma = rcFirma(st);
+    syncOk();
+  })['catch'](function (err) { syncFalla(explicarErrorFb(err)); });
+}
+function rcProgramar() {
+  if (!fbRefR || rcAplicando) return;
+  clearTimeout(rcTimer);
+  setSyncStatus('syncing');
+  rcTimer = setTimeout(function () {
+    var st = rcSnapshot();
+    if (rcFirma(st) !== rcUltFirma) rcSubir(st); else syncOk();
+  }, 700);
+}
+function rcFlush() {
+  if (!fbRefR) return;
+  clearTimeout(rcTimer);
+  var st = rcSnapshot();
+  if (rcFirma(st) !== rcUltFirma) rcSubir(st);
+}
+
+// ── Pestañas ────────────────────────────────────────────────────────────────
+function aplicarVista() {
+  var r = vista === 'rancho';
+  $('vistaGastos').classList.toggle('hidden', r);
+  $('vistaRancho').classList.toggle('hidden', !r);
+  $('fabGastos').classList.toggle('hidden', r);
+  $('fabRancho').classList.toggle('hidden', !r);
+  $('vtGastos').className = r ? '' : 'on';
+  $('vtRancho').className = r ? 'on' : '';
+}
+function setVista(v) {
+  vista = v === 'rancho' ? 'rancho' : 'gastos';
+  try { localStorage.setItem(LS_VISTA, vista); } catch (e) {}
+  aplicarVista();
+  window.scrollTo(0, 0);
+  render();
+}
+
+// ── Cálculos ────────────────────────────────────────────────────────────────
+function rcTotales(lst) {
+  var t = { pagado: 0, pend: 0, conFoto: 0, n: 0, nPend: 0, aporte: { p1: 0, p2: 0, otro: 0 } };
+  lst.forEach(function (m) {
+    var v = num(m.monto);
+    if (m.estado === 'pendiente') { t.pend += v; t.nPend++; }
+    else {
+      t.pagado += v;
+      var k = (m.pagoPor === 'p1' || m.pagoPor === 'p2') ? m.pagoPor : 'otro';
+      t.aporte[k] += v;
+    }
+    if (rcFotosDe(m).length) t.conFoto++;
+    t.n++;
+  });
+  t.pagado = redondear(t.pagado); t.pend = redondear(t.pend);
+  return t;
+}
+function rcFiltrados() {
+  var cat = $('rcFCat') ? $('rcFCat').value : '';
+  var txt = ($('rcFTexto') ? $('rcFTexto').value : '').trim().toLowerCase();
+  return rcMovs.filter(function (m) {
+    if (rcFiltroEstado === 'pagado' && m.estado === 'pendiente') return false;
+    if (rcFiltroEstado === 'pendiente' && m.estado !== 'pendiente') return false;
+    if (cat && m.cat !== cat) return false;
+    if (txt) {
+      var s = ((m.concepto || '') + ' ' + (m.proveedor || '') + ' ' + (m.factura || '') + ' ' + (m.nota || '')).toLowerCase();
+      if (s.indexOf(txt) < 0) return false;
+    }
+    return true;
+  }).sort(function (a, b) {
+    if (a.fecha === b.fecha) return String(b.id).localeCompare(String(a.id));
+    return a.fecha < b.fecha ? 1 : -1;
+  });
+}
+function rcNombrePagador(p) {
+  if (p === 'p1' || p === 'p2') return nombreDe(p);
+  return 'Otro';
+}
+
+// ── Pintar ──────────────────────────────────────────────────────────────────
+function rcRender() {
+  if (!$('rcLista')) return;
+  var t = rcTotales(rcMovs);
+
+  $('rcTotal').textContent = money(t.pagado);
+  $('rcDesc').textContent = rcMovs.length
+    ? rcMovs.length + (rcMovs.length === 1 ? ' registro' : ' registros') + (t.pend > 0 ? ' · por pagar ' + money(t.pend) : '')
+    : 'Todavía no hay gastos del rancho. Tocá “Registrar” para empezar.';
+
+  // Presupuesto
+  var P = num(rcCfg.presupuesto), pr = $('rcPresu');
+  if (P > 0) {
+    var comprometido = t.pagado + t.pend;
+    var disp = redondear(P - comprometido);
+    var a = Math.min(100, t.pagado / P * 100);
+    var b = Math.min(100 - a, t.pend / P * 100);
+    var excede = comprometido > P;
+    $('rcStDisp').textContent = money(disp);
+    $('rcStDisp').style.color = excede ? 'var(--red)' : '';
+    $('rcStDispH').textContent = excede ? 'se pasa del presupuesto' : 'de ' + money(P);
+    pr.innerHTML =
+      '<div class="between xs mut"><span>Presupuesto ' + money(P) + '</span>' +
+      '<span style="color:' + (excede ? 'var(--red)' : 'var(--green)') + ';font-weight:700">' +
+      (excede ? 'Se pasa por ' + money(-disp) : 'Disponible ' + money(disp)) + '</span></div>' +
+      '<div class="bar dos"><i class="' + (excede ? 'r' : '') + '" style="width:' + a + '%"></i><i class="y" style="width:' + b + '%"></i></div>' +
+      '<div class="xs mut mt8">Verde: pagado · amarillo: por pagar</div>';
+  } else {
+    $('rcStDisp').textContent = '—'; $('rcStDisp').style.color = ''; $('rcStDispH').textContent = 'sin presupuesto';
+    pr.innerHTML = '<div class="xs mut">Todavía no hay presupuesto. Tocá “Presupuesto” para ver cuánto les queda disponible.</div>';
+  }
+
+  // Recuadros
+  $('rcStPagado').textContent = money(t.pagado);
+  $('rcStPagadoH').textContent = (t.n - t.nPend) + ((t.n - t.nPend) === 1 ? ' registro pagado' : ' registros pagados');
+  $('rcStPend').textContent = money(t.pend);
+  $('rcStPendH').textContent = t.nPend ? t.nPend + (t.nPend === 1 ? ' pendiente' : ' pendientes') : 'nada pendiente';
+  $('rcStFact').textContent = t.conFoto + ' de ' + t.n;
+
+  // Aportes
+  var ap = ['p1', 'p2', 'otro'].filter(function (k) { return t.aporte[k] > 0; });
+  $('rcAportes').innerHTML = ap.length ? ap.map(function (k) {
+    var pct = t.pagado > 0 ? Math.round(t.aporte[k] / t.pagado * 100) : 0;
+    return '<div style="margin-bottom:13px"><div class="between"><span class="sm">' + esc(rcNombrePagador(k)) + '</span>' +
+      '<span class="sm num"><strong>' + money(t.aporte[k]) + '</strong> <span class="mut xs">' + pct + '%</span></span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div></div>';
+  }).join('') : '<div class="empty" style="padding:14px">Aparece cuando haya gastos pagados.</div>';
+
+  // Chips de estado
+  var defs = [['todos', 'Todos'], ['pagado', 'Pagados'], ['pendiente', 'Por pagar']];
+  $('rcChipsEstado').innerHTML = defs.map(function (d) {
+    var on = rcFiltroEstado === d[0];
+    return '<button class="chip' + (on ? (d[0] === 'pendiente' ? ' on-red' : ' on') : '') + '" onclick="rcSetEstado(\'' + d[0] + '\')">' + d[1] + '</button>';
+  }).join('');
+
+  // Select de categorías
+  var fc = $('rcFCat'), sel = fc.value;
+  fc.innerHTML = '<option value="">Todas las categorías</option>' + RC_CATS.map(function (c) {
+    return '<option value="' + c.id + '">' + esc(c.emoji + ' ' + c.nombre) + '</option>';
+  }).join('');
+  fc.value = sel;
+
+  rcPintarLista();
+  rcPintarDesglose();
+}
+function rcSetEstado(e) { rcFiltroEstado = e; rcRender(); }
+
+function rcPintarLista() {
+  var lst = rcFiltrados();
+  $('rcCnt').textContent = lst.length + (lst.length === 1 ? ' registro' : ' registros');
+  $('rcPie').classList.toggle('hidden', !rcMovs.length);
+  var cont = $('rcLista');
+  if (!lst.length) {
+    cont.innerHTML = '<div class="empty"><div class="big">🏡</div>' +
+      (rcMovs.length ? 'No hay registros con estos filtros.' : 'Todavía no hay nada registrado del rancho.<br>Tocá <strong>Registrar gasto o pago</strong> para empezar.') + '</div>';
+    return;
+  }
+  var html = '', diaAct = null;
+  lst.forEach(function (m) {
+    if (m.fecha !== diaAct) {
+      diaAct = m.fecha;
+      var tot = lst.filter(function (x) { return x.fecha === diaAct; }).reduce(function (a, x) { return a + num(x.monto); }, 0);
+      html += '<div class="dia-hd"><span>' + esc(fechaLarga(diaAct)) + '</span><span class="tot">' + money(tot) + '</span></div>';
+    }
+    html += rcFila(m);
+  });
+  cont.innerHTML = html;
+}
+function rcFila(m) {
+  var cat = rcCat(m.cat);
+  var pend = m.estado === 'pendiente';
+  var nf = rcFotosDe(m).length;
+  var quien = m.pagoPor === 'p1' || m.pagoPor === 'p2'
+    ? (m.pagoPor === soyId ? 'lo puse yo' : 'lo puso ' + nombreDe(m.pagoPor))
+    : 'lo puso otro';
+  var t2 = (pend ? '<span class="tag pend">por pagar</span>' : '') +
+    (m.proveedor ? '<span>' + esc(m.proveedor) + '</span><span>·</span>' : '') +
+    '<span>' + esc(pend ? cat.nombre : quien) + '</span>' +
+    (nf ? '<span>·</span><span>📎 ' + nf + '</span>' : '');
+  return '<div class="row" onclick="rcAbrir(\'' + m.id + '\')">' +
+    '<div class="cat-ico">' + esc(cat.emoji) + '</div>' +
+    '<div class="mid"><div class="t1">' + esc(m.concepto || cat.nombre) + '</div><div class="t2">' + t2 + '</div></div>' +
+    '<div class="rgt"><div class="amt num"' + (pend ? ' style="color:var(--yellow)"' : '') + '>' + money(m.monto) + '</div>' +
+    (m.factura ? '<div class="sub mut num">fact. ' + esc(m.factura) + '</div>' : '') + '</div>' +
+  '</div>';
+}
+function rcSetDesglose(m) {
+  rcDesgloseModo = m;
+  $('rcSegCat').className = m === 'cat' ? 'on' : '';
+  $('rcSegProv').className = m === 'prov' ? 'on' : '';
+  rcPintarDesglose();
+}
+function rcPintarDesglose() {
+  var lst = rcFiltrados(), acc = {}, total = 0;
+  lst.forEach(function (m) {
+    var k = rcDesgloseModo === 'cat' ? rcCat(m.cat).id : ((m.proveedor || '').trim() || '__');
+    acc[k] = (acc[k] || 0) + num(m.monto);
+    total += num(m.monto);
+  });
+  var filas = Object.keys(acc).map(function (k) {
+    var nombre;
+    if (rcDesgloseModo === 'cat') { var c = rcCat(k); nombre = c.emoji + ' ' + c.nombre; }
+    else nombre = k === '__' ? 'Sin proveedor' : k;
+    return { nombre: nombre, monto: acc[k] };
+  }).sort(function (a, b) { return b.monto - a.monto; });
+  if (!filas.length) { $('rcDesglose').innerHTML = '<div class="empty">Nada que mostrar todavía.</div>'; return; }
+  $('rcDesglose').innerHTML = filas.map(function (f) {
+    var pct = total > 0 ? Math.round(f.monto / total * 100) : 0;
+    return '<div style="margin-bottom:13px"><div class="between"><span class="sm">' + esc(f.nombre) + '</span>' +
+      '<span class="sm num"><strong>' + money(f.monto) + '</strong> <span class="mut xs">' + pct + '%</span></span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div></div>';
+  }).join('');
+}
+
+// ── Modal de registro ───────────────────────────────────────────────────────
+function rcAbrir(id) {
+  rcEditando = id ? porId(rcMovs, id) : null;
+  var m = rcEditando;
+  $('rTitulo').textContent = m ? 'Editar registro del rancho' : 'Gasto o pago del rancho';
+  $('rBorrar').classList.toggle('hidden', !m);
+  $('rMonto').value = m ? m.monto : '';
+  $('rFecha').value = m ? m.fecha : hoyISO();
+  $('rCat').innerHTML = RC_CATS.map(function (c) {
+    return '<option value="' + c.id + '">' + esc(c.emoji + ' ' + c.nombre) + '</option>';
+  }).join('');
+  $('rCat').value = m ? rcCat(m.cat).id : 'mat';
+  $('rConcepto').value = m ? (m.concepto || '') : '';
+  $('rProveedor').value = m ? (m.proveedor || '') : '';
+  $('rFactura').value = m ? (m.factura || '') : '';
+  $('rNota').value = m ? (m.nota || '') : '';
+  rcEstado = m && m.estado === 'pendiente' ? 'pendiente' : 'pagado';
+  rcPagador = m && m.pagoPor ? m.pagoPor : soyId;
+  var vistos = {}, provs = [];
+  rcMovs.forEach(function (x) {
+    var p = (x.proveedor || '').trim();
+    if (p && !vistos[p.toLowerCase()]) { vistos[p.toLowerCase()] = 1; provs.push(p); }
+  });
+  $('rProvList').innerHTML = provs.map(function (p) { return '<option value="' + esc(p) + '"></option>'; }).join('');
+  rcFotosEdit = rcFotosDe(m || {}).map(function (fid) { return { id: fid, data: fotoCache[fid] || null, nueva: false, error: false }; });
+  rcPintarEstado();
+  rcPintarPagador();
+  rcPintarFotos();
+  abrir('ovRancho');
+}
+function rcPintarEstado() {
+  $('rEstado').innerHTML = [['pagado', 'Ya se pagó'], ['pendiente', 'Por pagar']].map(function (d) {
+    return '<button type="button" class="' + (rcEstado === d[0] ? 'on' : '') + '" onclick="rcSetEstadoForm(\'' + d[0] + '\')">' + d[1] + '</button>';
+  }).join('');
+}
+function rcSetEstadoForm(e) { rcEstado = e; rcPintarEstado(); }
+function rcPintarPagador() {
+  $('rPagador').innerHTML = ['p1', 'p2', 'otro'].map(function (p) {
+    var n = p === 'otro' ? 'Otro' : nombreDe(p) + (p === soyId ? ' (yo)' : '');
+    return '<button type="button" class="' + (rcPagador === p ? 'on' : '') + '" onclick="rcSetPagador(\'' + p + '\')">' + esc(n) + '</button>';
+  }).join('');
+}
+function rcSetPagador(p) { rcPagador = p; rcPintarPagador(); }
+
+// ── Fotos de facturas ───────────────────────────────────────────────────────
+function rcCargarFoto(fid, cb) {
+  if (fotoCache[fid]) { cb(fotoCache[fid]); return; }
+  if (!fbRefF) { cb(null); return; }
+  fbRefF.child(fid).once('value').then(function (s) {
+    var v = s.val();
+    if (v && v.d) { fotoCache[fid] = v.d; cb(v.d); } else cb(null);
+  }, function () { cb(null); });
+}
+function rcPintarFotos() {
+  var h = rcFotosEdit.map(function (f, i) {
+    var inner = f.data ? '<img src="' + f.data + '" alt="Factura"/>' : '<span>' + (f.error ? 'no disponible' : 'cargando…') + '</span>';
+    return '<div class="foto" onclick="rcVerFoto(' + i + ')">' + inner +
+      '<button type="button" class="quitar" title="Quitar" onclick="event.stopPropagation();rcQuitarFoto(' + i + ')">✕</button></div>';
+  }).join('');
+  if (rcFotosEdit.length < RC_MAX_FOTOS) {
+    h += '<div class="foto foto-add" onclick="$(\'rArchivo\').click()"><span style="font-size:1.5rem">📷</span><span>Agregar foto</span></div>';
+  }
+  $('rFotos').innerHTML = h;
+  $('rFotosPie').textContent = rcFotosEdit.length
+    ? rcFotosEdit.length + ' de ' + RC_MAX_FOTOS + ' fotos. Tocá una para verla grande.'
+    : 'Sacale foto a la factura o al comprobante para tenerlo todo en un solo lugar.';
+  rcFotosEdit.forEach(function (f) {
+    if (f.data || f.error || f.cargando) return;
+    f.cargando = true;
+    rcCargarFoto(f.id, function (d) {
+      f.cargando = false;
+      if (d) f.data = d; else f.error = true;
+      if (rcFotosEdit.indexOf(f) >= 0 && abierto('ovRancho')) rcPintarFotos();
+    });
+  });
+}
+function rcQuitarFoto(i) {
+  if (!confirm('¿Quitar esta foto del registro?')) return;
+  rcFotosEdit.splice(i, 1);
+  rcPintarFotos();
+}
+function rcVerFoto(i) {
+  var f = rcFotosEdit[i];
+  if (!f || !f.data) return;
+  $('fotoGrande').src = f.data;
+  $('fotoDescarga').href = f.data;
+  $('fotoDescarga').setAttribute('download', 'factura_' + f.id + '.jpg');
+  abrir('ovFoto');
+}
+// Reduce la foto para que pese poco (unos 150–400 KB) y siga leyéndose.
+function rcComprimir(file, cb) {
+  var rd = new FileReader();
+  rd.onerror = function () { cb(new Error('No se pudo leer el archivo')); };
+  rd.onload = function () {
+    var img = new Image();
+    img.onerror = function () { cb(new Error('No se pudo abrir la imagen')); };
+    img.onload = function () {
+      var k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      var x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      x.drawImage(img, 0, 0, c.width, c.height);
+      var q = 0.72, d = c.toDataURL('image/jpeg', q);
+      while (d.length > 600000 && q > 0.4) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+      cb(null, d);
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+function rcAgregarFotos(inp) {
+  var files = Array.prototype.slice.call(inp.files || []);
+  inp.value = '';
+  if (!files.length) return;
+  if (!fbRefF) { toast('Las fotos necesitan la conexión a la nube', 'err'); return; }
+  var libres = RC_MAX_FOTOS - rcFotosEdit.length;
+  if (files.length > libres) { toast('Caben ' + RC_MAX_FOTOS + ' fotos por registro', 'err'); files = files.slice(0, libres); }
+  if (!files.length) return;
+  var pend = files.length, fallos = 0;
+  toast('Preparando foto…');
+  files.forEach(function (file) {
+    rcComprimir(file, function (err, data) {
+      if (err) fallos++;
+      else rcFotosEdit.push({ id: nuevoId(), data: data, nueva: true, error: false });
+      if (--pend === 0) {
+        rcPintarFotos();
+        if (fallos) toast('Una foto no se pudo leer. Solo sirven imágenes (no PDF).', 'err');
+        else toast('Foto lista. Se guarda al tocar Guardar.', 'ok');
+      }
+    });
+  });
+}
+
+// ── Guardar / borrar ────────────────────────────────────────────────────────
+function rcGuardar() {
+  var monto = num($('rMonto').value);
+  if (monto <= 0) { toast('Poné un monto mayor que cero', 'err'); return; }
+  var viejas = rcFotosDe(rcEditando || {});
+  var nuevas = rcFotosEdit.filter(function (f) { return f.nueva && f.data; });
+  var quitadas = viejas.filter(function (fid) { return !rcFotosEdit.some(function (f) { return f.id === fid; }); });
+  if (nuevas.length && !fbRefF) { toast('Las fotos necesitan la conexión a la nube', 'err'); return; }
+
+  var m = rcEditando;
+  if (!m) { m = { id: nuevoId() }; rcMovs.push(m); }
+  m.fecha = $('rFecha').value || hoyISO();
+  m.monto = redondear(monto);
+  m.cat = $('rCat').value || 'otr';
+  m.concepto = ($('rConcepto').value || '').trim();
+  m.proveedor = ($('rProveedor').value || '').trim();
+  m.estado = rcEstado;
+  m.pagoPor = rcPagador;
+  m.factura = ($('rFactura').value || '').trim();
+  m.nota = ($('rNota').value || '').trim();
+  var ids = rcFotosEdit.map(function (f) { return f.id; });
+  if (ids.length) m.fotos = ids; else delete m.fotos;
+  marcar(m);
+  rcEditando = null;
+  cerrar('ovRancho');
+  rcTocado();
+  toast('Guardado', 'ok');
+
+  nuevas.forEach(function (f) {
+    fotoCache[f.id] = f.data;
+    fbRefF.child(f.id).set({ d: f.data, _ts: ahora() }).then(function () {
+      toast('Factura subida a la nube', 'ok');
+    })['catch'](function (err) { toast('No se pudo subir la foto: ' + explicarErrorFb(err), 'err'); });
+  });
+  if (nuevas.length && !fbOnline) toast('Sin conexión: la foto sube sola al volver internet. No cierres la app hasta que diga “Al día”.', 'err');
+  quitadas.forEach(function (fid) { if (fbRefF) fbRefF.child(fid)['remove'](); });
+}
+function rcBorrar() {
+  if (!rcEditando) return;
+  if (!confirm('¿Borrar este registro del rancho? También se borra en el teléfono de la otra persona, con sus fotos.')) return;
+  var m = rcEditando, id = m.id;
+  rcFotosDe(m).forEach(function (fid) { if (fbRefF) fbRefF.child(fid)['remove'](); delete fotoCache[fid]; });
+  rcMovs = rcMovs.filter(function (x) { return x.id !== id; });
+  rcTombs[id] = ahora();
+  rcEditando = null;
+  cerrar('ovRancho');
+  rcTocado();
+  toast('Registro borrado');
+}
+
+// ── Presupuesto ─────────────────────────────────────────────────────────────
+function rcAbrirPresupuesto() {
+  $('rpMonto').value = num(rcCfg.presupuesto) > 0 ? rcCfg.presupuesto : '';
+  abrir('ovRcPresu');
+}
+function rcGuardarPresupuesto(quitar) {
+  var v = quitar ? 0 : redondear(num($('rpMonto').value));
+  if (!quitar && v <= 0) { toast('Poné un monto mayor que cero', 'err'); return; }
+  rcCfg = { presupuesto: v, _ts: ahora() };
+  cerrar('ovRcPresu');
+  rcTocado();
+  toast(quitar ? 'Presupuesto quitado' : 'Presupuesto guardado', 'ok');
+}
+
+// ── Excel y respaldo ────────────────────────────────────────────────────────
+function rcExportarExcel() {
+  if (typeof XLSX === 'undefined') { toast('No se pudo cargar Excel', 'err'); return; }
+  var lst = rcMovs.slice().sort(function (a, b) { return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); });
+  var hoja = lst.map(function (m) {
+    return {
+      'Fecha': m.fecha, 'Qué es': m.concepto || '', 'Proveedor': m.proveedor || '',
+      'Categoría': rcCat(m.cat).nombre, 'Monto': num(m.monto),
+      'Estado': m.estado === 'pendiente' ? 'Por pagar' : 'Pagado',
+      'Puso la plata': rcNombrePagador(m.pagoPor), 'N.º factura': m.factura || '',
+      'Fotos adjuntas': rcFotosDe(m).length, 'Nota': m.nota || ''
+    };
+  });
+  var t = rcTotales(rcMovs);
+  var res = [
+    { Concepto: 'Total pagado', Valor: t.pagado },
+    { Concepto: 'Por pagar', Valor: t.pend },
+    { Concepto: 'Presupuesto', Valor: num(rcCfg.presupuesto) },
+    { Concepto: 'Disponible (presupuesto − pagado − por pagar)', Valor: num(rcCfg.presupuesto) > 0 ? redondear(num(rcCfg.presupuesto) - t.pagado - t.pend) : '' },
+    { Concepto: 'Puso ' + nombreDe('p1'), Valor: redondear(t.aporte.p1) },
+    { Concepto: 'Puso ' + nombreDe('p2'), Valor: redondear(t.aporte.p2) },
+    { Concepto: 'Puso otro', Valor: redondear(t.aporte.otro) }
+  ];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja), 'Rancho');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(res), 'Resumen');
+  XLSX.writeFile(wb, 'rancho_' + hoyISO() + '.xlsx');
+}
+function rcImportar(r, t) {
+  var nuevos = {};
+  aArray(r.movs).forEach(function (m) { nuevos[m.id] = 1; });
+  rcMovs.forEach(function (m) { if (!nuevos[m.id]) rcTombs[m.id] = t; });
+  rcMovs = aArray(r.movs).map(function (m) { m._ts = t; return m; });
+  rcMovs.forEach(function (m) { delete rcTombs[m.id]; });
+  var c = r.cfg || {};
+  rcCfg = { presupuesto: num(c.presupuesto), _ts: t };
+  rcGuardarLocal();
+  rcProgramar();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    ARRANQUE
    ═══════════════════════════════════════════════════════════════════ */
-var VERSION = '1.1';
+var VERSION = '1.2';
 
 function arrancar() {
   cargarLocal();
+  rcCargarLocal();
+  aplicarVista();
 
   // ¿Vino por un enlace de invitación?
   var inv = leerInvitacion();
